@@ -5,25 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
-	"runtime"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/imelon2/nitro-hive/common/path"
 )
 
 const MAX_COUNT = 100000
 
 func main() {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		log.Fatal("bad path")
-	}
-
-	root := filepath.Dir(filename)
-
-	accountFilePath := filepath.Join(root, "account_100k")
-	privateKeyFilePath := filepath.Join(root, "privateKey_100k")
+	accountFilePath := path.AccountPath()
+	privateKeyFilePath := path.PrivateKeyPath()
 
 	accountFile, err := os.Create(accountFilePath)
 	if err != nil {
@@ -54,20 +46,14 @@ func main() {
 		address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
 
 		if i < MAX_COUNT-1 {
-			_, err = accountFile.WriteString(fmt.Sprintf("\"%s\",\n", address))
-		} else {
-			// The last address is written without commas
-			_, err = accountFile.WriteString(fmt.Sprintf("\"%s\"\n", address))
+			_, err = accountFile.WriteString(fmt.Sprintf("%s\n", address))
 		}
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		if i < MAX_COUNT-1 {
-			_, err = privateKeyFile.WriteString(fmt.Sprintf("\"%s\",\n", privateKeyHex))
-		} else {
-			// The last address is written without commas
-			_, err = privateKeyFile.WriteString(fmt.Sprintf("\"%s\"\n", privateKeyHex))
+			_, err = privateKeyFile.WriteString(fmt.Sprintf("%s\n", privateKeyHex))
 		}
 
 		if err != nil {
@@ -75,5 +61,5 @@ func main() {
 		}
 	}
 
-	fmt.Println(MAX_COUNT, " addresses and private key generated and saved to account_100k, privateKey_100k")
+	fmt.Println(MAX_COUNT, "addresses and private key generated and saved to account_100k, privateKey_100k")
 }
