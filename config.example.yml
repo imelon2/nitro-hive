@@ -1,5 +1,11 @@
 providers:
-  parent:
-  child:
-condition:
-  
+  parent: http://localhost:8547
+  main: http://localhost:3347
+signer:
+  privateKey: 
+simulate-option:
+  total: 100
+  account-range:
+    start-index: 0
+    total: 10 #
+transaction-options:

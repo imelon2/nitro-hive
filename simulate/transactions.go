@@ -1,7 +1,6 @@
 package simulate
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,23 +17,26 @@ func NativeTransafer() {
 	simulate := NewSimulateContext()
 
 	txFunc := func(id int) (*types.Transaction, error) {
+		signer.NonceMutex.Lock()
+		defer signer.NonceMutex.Unlock()
+		signer.UpdateNonce()
 
-		fmt.Printf("IS? : %d\n", id)
-		transferAmount := new(big.Int).Mul(big.NewInt(params.Ether), big.NewInt(1))
+		transferAmount := new(big.Int).Mul(big.NewInt(params.GWei), big.NewInt(1))
 
 		tx := types.NewTx(&types.LegacyTx{
-			Nonce: signer.SignerOpt.Nonce.Uint64(),
-			To:    simulate.Address[id],
-			Value: transferAmount,
-			// Gas:      config.GasLimit,
-			// GasPrice: gasPrice,
+			Nonce:    signer.SignerOpt.Nonce.Uint64(),
+			To:       simulate.Address[id],
+			Value:    transferAmount,
+			Gas:      25000,
+			GasPrice: big.NewInt(100000000),
 		})
 
 		signedTx, err := signer.SignerOpt.Signer(*signer.Account, tx)
 		if err != nil {
 			return nil, err
 		}
-		return signedTx, signer.MainClient.SendTransaction(signer.Ctx, signedTx)
+		err = signer.MainClient.SendTransaction(signer.Ctx, signedTx)
+		return signedTx, err
 	}
 
 	simulate.Simulate(txFunc)

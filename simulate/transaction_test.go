@@ -8,4 +8,6 @@ import (
 
 func Test_NativeTransafer(t *testing.T) {
 	simulate.NativeTransafer()
+
+	// time.Sleep(10 * time.Second)
 }

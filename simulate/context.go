@@ -4,28 +4,28 @@ import (
 	"bufio"
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"log"
-	"math/big"
 	"os"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	com "github.com/imelon2/nitro-hive/common"
 	"github.com/imelon2/nitro-hive/common/path"
 	"github.com/imelon2/nitro-hive/common/utils"
 )
 
 type SimulateContext struct {
-	PrivateKey []*ecdsa.PrivateKey
-	Address    []*common.Address
-	Total      int
-	Wait       sync.WaitGroup
-	FailCount  int
+	MainClient *ethclient.Client
+	// PrivateKey []*ecdsa.PrivateKey
+	Address   []*common.Address
+	Total     int
+	Wait      sync.WaitGroup
+	FailCount int
+	Ctx       context.Context
 }
 
 type SignerContext struct {
@@ -39,7 +39,13 @@ type SignerContext struct {
 
 func NewSimulateContext() *SimulateContext {
 	// func NewSimulateContext() (*SimulateContext, error) {
-	context := SimulateContext{}
+	simulateContext := SimulateContext{}
+
+	mainClient, err := ethclient.Dial(GlobalConfig.Providers.Main)
+	if err != nil {
+		log.Fatalf("main client: %v", err)
+	}
+	simulateContext.MainClient = mainClient
 
 	privateKeyFilePath := path.PrivateKeyPath()
 	file, err := os.Open(privateKeyFilePath)
@@ -49,34 +55,57 @@ func NewSimulateContext() *SimulateContext {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	index := GlobalConfig.SimulateOption.AccountRange.StartIndex
-
 	for scanner.Scan() {
-		if index != 0 {
-			index--
-			continue
-		}
-
 		line := scanner.Text()
 		pk := utils.Unhexlify(line)
 		key, err := crypto.HexToECDSA(pk)
 		if err != nil {
 			log.Fatalf("Failed to HexToECDSA : %v", err)
 		}
-		context.PrivateKey = append(context.PrivateKey, key)
-		publicKey := key.Public()
 
+		publicKey := key.Public()
 		publicKeyECDSA, _ := publicKey.(*ecdsa.PublicKey)
 		address := crypto.PubkeyToAddress(*publicKeyECDSA)
-		context.Address = append(context.Address, &address)
+		simulateContext.Address = append(simulateContext.Address, &address)
 
-		if len(context.PrivateKey) >= GlobalConfig.SimulateOption.AccountRange.Total {
+		if len(simulateContext.Address) >= com.MAX_ACCOUNT_COUNT {
 			break
 		}
 	}
 
-	context.Total = GlobalConfig.SimulateOption.Total
-	return &context
+	//@ TODO : Multi call
+	// simulateContext.PrivateKey = append(simulateContext.PrivateKey, key)
+	// index := GlobalConfig.SimulateOption.AccountRange.StartIndex
+
+	// for scanner.Scan() {
+	// 	if index != 0 {
+	// 		index--
+	// 		continue
+	// 	}
+
+	// 	line := scanner.Text()
+	// 	pk := utils.Unhexlify(line)
+	// 	key, err := crypto.HexToECDSA(pk)
+	// 	if err != nil {
+	// 		log.Fatalf("Failed to HexToECDSA : %v", err)
+	// 	}
+	// 	simulateContext.PrivateKey = append(simulateContext.PrivateKey, key)
+	// 	publicKey := key.Public()
+
+	// 	publicKeyECDSA, _ := publicKey.(*ecdsa.PublicKey)
+	// 	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	// 	simulateContext.Address = append(simulateContext.Address, &address)
+	// 	simulateContext.Ctx = context.Background()
+
+	// 	if len(simulateContext.PrivateKey) >= GlobalConfig.SimulateOption.AccountRange.Total {
+	// 		break
+	// 	}
+	// }
+
+	simulateContext.Ctx = context.Background()
+	simulateContext.Total = GlobalConfig.SimulateOption.Total
+
+	return &simulateContext
 }
 
 func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
@@ -112,16 +141,16 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 		log.Fatalf("NewKeyedTransactorWithChainID: %s", err)
 	}
 
-	gasPrice, _ := mainClient.SuggestGasPrice(context.Background())
-	opt.GasPrice = gasPrice
+	// gasPrice, _ := mainClient.SuggestGasPrice(context.Background())
+	// opt.GasPrice = gasPrice
 
 	// chain.GasLimit = config.GasLimit => Estimate
 
-	nonce, err := mainClient.PendingNonceAt(context.Background(), address)
-	if err != nil {
-		log.Fatalf("Nonce: %v", err)
-	}
-	opt.Nonce = big.NewInt(int64(nonce))
+	// nonce, err := mainClient.PendingNonceAt(context.Background(), address)
+	// if err != nil {
+	// 	log.Fatalf("Nonce: %v", err)
+	// }
+	// opt.Nonce = big.NewInt(int64(nonce))
 
 	return &SignerContext{
 		MainClient:   mainClient,
@@ -131,22 +160,4 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 		NonceMutex:   new(sync.Mutex),
 		Ctx:          context.Background(),
 	}, nil
-}
-
-func (context *SimulateContext) Simulate(txFunc func(int) (*types.Transaction, error)) {
-	for i := 0; i < context.Total; i++ {
-		context.Wait.Add(1)
-
-		go func(i int) {
-			context.Wait.Done()
-
-			fmt.Printf("IS? : %d\n", i)
-			tx, err := txFunc(i)
-			if err != nil {
-				log.Fatalf("txFunc: %v", err)
-			}
-
-			fmt.Printf("HASH : %s", tx.Hash().Hex())
-		}(i)
-	}
 }
