@@ -1,13 +1,12 @@
 package simulate
 
 import (
-	"context"
 	"log"
 	"math/big"
 )
 
 func (signer *SignerContext) UpdateNonce() {
-	nonce, err := signer.MainClient.PendingNonceAt(context.Background(), *signer.Account)
+	nonce, err := signer.MainClient.PendingNonceAt(signer.Ctx, *signer.Account)
 	if err != nil {
 		log.Fatalf("fail update nonce: %v", err)
 	}

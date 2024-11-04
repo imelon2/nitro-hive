@@ -10,9 +10,8 @@ import (
 )
 
 type Config struct {
-	Providers      Providers      `yaml:"providers"`
-	Signer         Signer         `yaml:"signer"`
-	SimulateOption SimulateOption `yaml:"simulate-option"`
+	Providers       Providers       `yaml:"providers"`
+	SimulateOptions SimulateOptions `yaml:"simulate-options"`
 }
 
 type Providers struct {
@@ -20,16 +19,24 @@ type Providers struct {
 	Main   string `yaml:"main"`
 }
 
-type Signer struct {
-	PrivateKey string `yaml:"privateKey"`
+type SimulateOptions struct {
+	Total              int                `yaml:"total"`
+	TransactionOptions TransactionOptions `yaml:"transaction-options"`
+	SingleSigner       SingleSigner       `yaml:"single-signer"`
+	MultiSigner        MultiSigner        `yaml:"multi-signer"`
 }
 
-type SimulateOption struct {
-	Total        int          `yaml:"total"`
-	AccountRange AccountRange `yaml:"account-range"`
+type TransactionOptions struct {
+	Value    int `yaml:"value"`
+	Gas      int `yaml:"gas"`
+	GasPrice int `yaml:"gas-price"`
 }
 
-type AccountRange struct {
+type SingleSigner struct {
+	PrivateKey string `yaml:"private-key"`
+}
+
+type MultiSigner struct {
 	StartIndex int `yaml:"start-index"`
 	Total      int `yaml:"total"`
 }

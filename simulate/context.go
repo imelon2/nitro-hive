@@ -20,12 +20,11 @@ import (
 
 type SimulateContext struct {
 	MainClient *ethclient.Client
-	// PrivateKey []*ecdsa.PrivateKey
-	Address   []*common.Address
-	Total     int
-	Wait      sync.WaitGroup
-	FailCount int
-	Ctx       context.Context
+	Address    []*common.Address
+	Total      int
+	Wait       sync.WaitGroup
+	FailCount  int
+	Ctx        context.Context
 }
 
 type SignerContext struct {
@@ -38,14 +37,12 @@ type SignerContext struct {
 }
 
 func NewSimulateContext() *SimulateContext {
-	// func NewSimulateContext() (*SimulateContext, error) {
 	simulateContext := SimulateContext{}
 
 	mainClient, err := ethclient.Dial(GlobalConfig.Providers.Main)
 	if err != nil {
 		log.Fatalf("main client: %v", err)
 	}
-	simulateContext.MainClient = mainClient
 
 	privateKeyFilePath := path.PrivateKeyPath()
 	file, err := os.Open(privateKeyFilePath)
@@ -102,8 +99,9 @@ func NewSimulateContext() *SimulateContext {
 	// 	}
 	// }
 
+	simulateContext.MainClient = mainClient
 	simulateContext.Ctx = context.Background()
-	simulateContext.Total = GlobalConfig.SimulateOption.Total
+	simulateContext.Total = GlobalConfig.SimulateOptions.Total
 
 	return &simulateContext
 }
@@ -125,9 +123,6 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 		log.Fatal(err)
 	}
 
-	// pk := utils.Unhexlify(GlobalConfig.Signer.PrivateKey)
-	// key, _ := crypto.HexToECDSA(pk)
-
 	publicKey := pk.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
@@ -140,17 +135,6 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 	if err != nil {
 		log.Fatalf("NewKeyedTransactorWithChainID: %s", err)
 	}
-
-	// gasPrice, _ := mainClient.SuggestGasPrice(context.Background())
-	// opt.GasPrice = gasPrice
-
-	// chain.GasLimit = config.GasLimit => Estimate
-
-	// nonce, err := mainClient.PendingNonceAt(context.Background(), address)
-	// if err != nil {
-	// 	log.Fatalf("Nonce: %v", err)
-	// }
-	// opt.Nonce = big.NewInt(int64(nonce))
 
 	return &SignerContext{
 		MainClient:   mainClient,
