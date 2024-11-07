@@ -1,11 +1,16 @@
 providers:
   parent: http://localhost:8547
   main: http://localhost:3347
-signer:
-  privateKey: 
-simulate-option:
-  total: 100
-  account-range:
+simulate-options:
+  total: 1000
+  single-signer:
+    private-key: 
+  multi-signer:
     start-index: 0
-    total: 10 #
+    total: 10000 # MAX 100000
 transaction-options:
+  value: 100000000000000000
+  gas: 30000
+  gas-price:
+  data:
+  to: 

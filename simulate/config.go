@@ -1,6 +1,7 @@
 package simulate
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,26 +11,27 @@ import (
 )
 
 type Config struct {
-	Providers       Providers       `yaml:"providers"`
-	SimulateOptions SimulateOptions `yaml:"simulate-options"`
+	Providers          Providers          `yaml:"providers"`
+	SimulateOptions    SimulateOptions    `yaml:"simulate-options"`
+	TransactionOptions TransactionOptions `yaml:"transaction-options"`
 }
 
 type Providers struct {
-	Parent string `yaml:"parent"`
-	Main   string `yaml:"main"`
+	Main string `yaml:"main"`
 }
 
 type SimulateOptions struct {
-	Total              int                `yaml:"total"`
-	TransactionOptions TransactionOptions `yaml:"transaction-options"`
-	SingleSigner       SingleSigner       `yaml:"single-signer"`
-	MultiSigner        MultiSigner        `yaml:"multi-signer"`
+	Total        int          `yaml:"total"`
+	SingleSigner SingleSigner `yaml:"single-signer"`
+	MultiSigner  MultiSigner  `yaml:"multi-signer"`
 }
 
 type TransactionOptions struct {
-	Value    int `yaml:"value"`
-	Gas      int `yaml:"gas"`
-	GasPrice int `yaml:"gas-price"`
+	Value    int    `yaml:"value"`
+	Gas      int    `yaml:"gas"`
+	GasPrice int    `yaml:"gas-price"`
+	Data     string `yaml:"data"`
+	To       string `yaml:"to"`
 }
 
 type SingleSigner struct {
@@ -67,4 +69,11 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to unmarshal YAML: %v", err)
 	}
+}
+
+func GetCpu() {
+	currCPU := runtime.NumCPU() // 내 PC CPU 개수
+	// runtime.GOMAXPROCS(currCPU)
+	fmt.Println("Max System CPU : ", currCPU)                   // 설정값 출력
+	fmt.Println("Current System CPU : ", runtime.GOMAXPROCS(0)) // 설정값 출력
 }

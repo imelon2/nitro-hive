@@ -5,21 +5,36 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/imelon2/nitro-hive/common/utils"
 )
 
 func (signer *SignerContext) NativeTransafer() func(*common.Address) (*types.Transaction, error) {
-
 	txFunc := func(to *common.Address) (*types.Transaction, error) {
 		signer.NonceMutex.Lock()
 		defer signer.NonceMutex.Unlock()
 		signer.UpdateNonce()
 
+		var err error
+		GasPrice := big.NewInt(int64(GlobalConfig.TransactionOptions.GasPrice))
+		if GasPrice.Cmp(big.NewInt(0)) == 0 {
+			GasPrice, err = signer.MainClient.SuggestGasPrice(signer.Ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		Data := common.Hex2Bytes(utils.Unhexlify(GlobalConfig.TransactionOptions.Data))
+		if to == nil {
+			_to := common.HexToAddress(GlobalConfig.TransactionOptions.To)
+			to = &_to
+		}
+
 		tx := types.NewTx(&types.LegacyTx{
 			Nonce:    signer.SignerOpt.Nonce.Uint64(),
 			To:       to,
-			Value:    big.NewInt(int64(GlobalConfig.SimulateOptions.TransactionOptions.Value)),
-			Gas:      uint64(GlobalConfig.SimulateOptions.TransactionOptions.Gas),
-			GasPrice: big.NewInt(int64(GlobalConfig.SimulateOptions.TransactionOptions.GasPrice)),
+			Value:    big.NewInt(int64(GlobalConfig.TransactionOptions.Value)),
+			Gas:      uint64(GlobalConfig.TransactionOptions.Gas),
+			GasPrice: GasPrice,
+			Data:     Data,
 		})
 
 		signedTx, err := signer.SignerOpt.Signer(*signer.Account, tx)

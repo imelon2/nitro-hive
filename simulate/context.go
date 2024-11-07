@@ -21,6 +21,7 @@ import (
 type SimulateContext struct {
 	MainClient *ethclient.Client
 	Address    []*common.Address
+	PrivateKey []*ecdsa.PrivateKey
 	Total      int
 	Wait       sync.WaitGroup
 	FailCount  int
@@ -28,12 +29,11 @@ type SimulateContext struct {
 }
 
 type SignerContext struct {
-	MainClient   *ethclient.Client
-	ParentClient *ethclient.Client
-	Account      *common.Address
-	SignerOpt    *bind.TransactOpts
-	NonceMutex   *sync.Mutex
-	Ctx          context.Context
+	MainClient *ethclient.Client
+	Account    *common.Address
+	SignerOpt  *bind.TransactOpts
+	NonceMutex *sync.Mutex
+	Ctx        context.Context
 }
 
 func NewSimulateContext() *SimulateContext {
@@ -45,13 +45,13 @@ func NewSimulateContext() *SimulateContext {
 	}
 
 	privateKeyFilePath := path.PrivateKeyPath()
-	file, err := os.Open(privateKeyFilePath)
+	privateKeyFile, err := os.Open(privateKeyFilePath)
 	if err != nil {
 		log.Fatalf("Failed to open private key file: %v", err)
 	}
-	defer file.Close()
+	defer privateKeyFile.Close()
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(privateKeyFile)
 	for scanner.Scan() {
 		line := scanner.Text()
 		pk := utils.Unhexlify(line)
@@ -64,6 +64,7 @@ func NewSimulateContext() *SimulateContext {
 		publicKeyECDSA, _ := publicKey.(*ecdsa.PublicKey)
 		address := crypto.PubkeyToAddress(*publicKeyECDSA)
 		simulateContext.Address = append(simulateContext.Address, &address)
+		simulateContext.PrivateKey = append(simulateContext.PrivateKey, key)
 
 		if len(simulateContext.Address) >= com.MAX_ACCOUNT_COUNT {
 			break
@@ -113,11 +114,6 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 		log.Fatalf("main client: %v", err)
 	}
 
-	parentClient, err := ethclient.Dial(GlobalConfig.Providers.Parent)
-	if err != nil {
-		log.Fatalf("parent client: %v", err)
-	}
-
 	mainChainID, err := mainClient.NetworkID(context.Background())
 	if err != nil {
 		log.Fatal(err)
@@ -137,11 +133,10 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 	}
 
 	return &SignerContext{
-		MainClient:   mainClient,
-		ParentClient: parentClient,
-		Account:      &address,
-		SignerOpt:    opt,
-		NonceMutex:   new(sync.Mutex),
-		Ctx:          context.Background(),
+		MainClient: mainClient,
+		Account:    &address,
+		SignerOpt:  opt,
+		NonceMutex: new(sync.Mutex),
+		Ctx:        context.Background(),
 	}, nil
 }
