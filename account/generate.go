@@ -1,4 +1,4 @@
-package main
+package account
 
 import (
 	"crypto/ecdsa"
@@ -8,11 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	constant "github.com/imelon2/nitro-hive/common"
 	"github.com/imelon2/nitro-hive/common/path"
 )
 
-func main() {
+func Generate(account_count int) {
 	accountFilePath := path.AccountPath()
 	privateKeyFilePath := path.PrivateKeyPath()
 
@@ -28,7 +27,7 @@ func main() {
 	defer accountFile.Close()
 	defer privateKeyFile.Close()
 
-	for i := 0; i < constant.MAX_ACCOUNT_COUNT; i++ {
+	for i := 0; i < account_count; i++ {
 		privateKey, err := crypto.GenerateKey()
 		if err != nil {
 			log.Fatal(err)
@@ -44,14 +43,14 @@ func main() {
 
 		address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
 
-		if i < constant.MAX_ACCOUNT_COUNT-1 {
+		if i <= account_count-1 {
 			_, err = accountFile.WriteString(fmt.Sprintf("%s\n", address))
 		}
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		if i < constant.MAX_ACCOUNT_COUNT-1 {
+		if i <= account_count-1 {
 			_, err = privateKeyFile.WriteString(fmt.Sprintf("%s\n", privateKeyHex))
 		}
 
@@ -60,5 +59,5 @@ func main() {
 		}
 	}
 
-	fmt.Println(constant.MAX_ACCOUNT_COUNT, "addresses and private key generated and saved to account_100k, privateKey_100k")
+	fmt.Println(account_count, "addresses and private key generated and saved")
 }

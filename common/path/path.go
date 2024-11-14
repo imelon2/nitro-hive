@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ACCOUNT_FILE_NALE     = "account_100k"
-	PRIVATE_KEY_FILE_NALE = "privateKey_100k"
+	ACCOUNT_FILE_NALE     = "accounts"
+	PRIVATE_KEY_FILE_NALE = "privateKey"
 )
 
 func AccountPath() string {
