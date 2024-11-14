@@ -64,6 +64,7 @@ to quickly create a Cobra application.`,
 		if remained != 0 {
 			subAccountCount++
 		}
+
 		fmt.Printf("Send Multicall Tx Total %d count | remained %d \n\n", subAccountCount, remained)
 
 		subAccount := (simulation.Address)[:subAccountCount]
@@ -75,25 +76,35 @@ to quickly create a Cobra application.`,
 			}
 
 			fmt.Printf("Sub Account: %d\n", len(receiver))
+
 			amountPerAccount := make([]*big.Int, 0)
-			totalValue := big.NewInt(value * int64(multicallMaxCall))
-			totalValue = totalValue.Add(totalValue, c.MULTICALL_FEE)
+			for len(simulation.Address) > 0 {
+				simulateReceiver := simulation.Address
+				if len(simulateReceiver) > multicallMaxCall {
+					simulateReceiver = simulateReceiver[:multicallMaxCall]
+				}
 
-			amountPerAccount = append(amountPerAccount, totalValue)
+				totalValue := big.NewInt(value * int64(len(simulateReceiver)))
+				totalValue = totalValue.Add(totalValue, c.MULTICALL_FEE)
 
-			for simulateAccount >= multicallMaxCall {
+				amountPerAccount = append(amountPerAccount, totalValue)
 
-				txFuncs := make([]func() (*types.Transaction, error), 0)
-				txFunc := signer.Distribute(receiver, big.NewInt(gasPrice), gasLimit, amountPerAccount)
-				txFuncs = append(txFuncs, txFunc)
+				simulation.Address = (simulation.Address)[len(simulateReceiver):]
 
-				Start := time.Now()
-				simulation.SimulateWait(txFuncs)
-				duration := time.Since(Start) // 종료 시점에서 경과 시간 계산
-				fmt.Printf("\n\nExecution SimulateWait time: %v\n", duration)
-
-				simulateAccount -= multicallMaxCall
+				if len(amountPerAccount) == multicallMaxCall {
+					break
+				}
 			}
+
+			fmt.Printf("Count: %d\n\n", amountPerAccount[len(amountPerAccount)-1])
+			txFuncs := make([]func() (*types.Transaction, error), 0)
+			txFunc := signer.Distribute(receiver, big.NewInt(gasPrice), gasLimit, amountPerAccount)
+			txFuncs = append(txFuncs, txFunc)
+
+			Start := time.Now()
+			simulation.SimulateWait(txFuncs)
+			duration := time.Since(Start) // 종료 시점에서 경과 시간 계산
+			fmt.Printf("\n\nExecution SimulateWait time: %v\n", duration)
 
 			subAccount = (subAccount)[len(receiver):]
 			fmt.Print("RUN\n")
@@ -131,7 +142,7 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(DistributeCmd)
 
-	DistributeCmd.Flags().Int64P("value", "", 10000000000000000, "Number of node created data to retrieve(DEFAULT 1 ETH)")
+	DistributeCmd.Flags().Int64P("value", "", 10000000000000, "Number of node created data to retrieve(DEFAULT 1 ETH)")
 	DistributeCmd.Flags().Int64P("gasPrice", "", 300000000, "Number of node created data to retrieve(0.5 GWEI)")
 	DistributeCmd.Flags().Uint64P("gasLimit", "", 0, "Number of node created data to retrieve")
 }
