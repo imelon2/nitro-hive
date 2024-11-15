@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	c "github.com/imelon2/nitro-hive/common"
 
+	hlog "github.com/imelon2/nitro-hive/common/hLog"
 	"github.com/imelon2/nitro-hive/common/utils"
 	"github.com/imelon2/nitro-hive/config"
 	"github.com/imelon2/nitro-hive/simulate"
@@ -44,10 +45,6 @@ to quickly create a Cobra application.`,
 			log.Fatal(err)
 		}
 
-		fmt.Printf("value per address: %d\n", value)
-		fmt.Printf("gasPrice per tx: %d\n", gasPrice)
-		fmt.Printf("gasLimit per tx: %d\n", gasLimit)
-
 		simulation := simulate.NewSimulateContext()
 
 		pk := utils.Unhexlify(config.GlobalConfig.SimulateOptions.SingleSigner.PrivateKey)
@@ -64,9 +61,10 @@ to quickly create a Cobra application.`,
 		if remained != 0 {
 			subAccountCount++
 		}
-
-		fmt.Printf("Send Multicall Tx Total %d count | remained %d \n\n", subAccountCount, remained)
-
+		hlog.DistributeIntroLog(hlog.DistributeIntroLogParam{
+			TotalAccount: simulateAccount,
+			PerAmount:    value,
+		})
 		subAccount := (simulation.Address)[:subAccountCount]
 
 		for len(subAccount) > 0 {
@@ -74,9 +72,6 @@ to quickly create a Cobra application.`,
 			if len(subAccount) > multicallMaxCall {
 				receiver = (receiver)[:multicallMaxCall]
 			}
-
-			fmt.Printf("Sub Account: %d\n", len(receiver))
-
 			amountPerAccount := make([]*big.Int, 0)
 			for len(simulation.Address) > 0 {
 				simulateReceiver := simulation.Address
@@ -95,19 +90,20 @@ to quickly create a Cobra application.`,
 					break
 				}
 			}
-
-			fmt.Printf("Count: %d\n\n", amountPerAccount[len(amountPerAccount)-1])
 			txFuncs := make([]func() (*types.Transaction, error), 0)
 			txFunc := signer.Distribute(receiver, big.NewInt(gasPrice), gasLimit, amountPerAccount)
 			txFuncs = append(txFuncs, txFunc)
 
-			Start := time.Now()
-			simulation.SimulateWait(txFuncs)
-			duration := time.Since(Start) // 종료 시점에서 경과 시간 계산
-			fmt.Printf("\n\nExecution SimulateWait time: %v\n", duration)
+			bar, p := hlog.NewSignerProgress(0, int64(len(txFuncs)))
+			signer.Progress = &transaction.ProgressClass{
+				Bar:      bar,
+				Progress: p,
+			}
 
+			simulation.SimulateWait(txFuncs)
+
+			signer.Progress.Progress.Wait()
 			subAccount = (subAccount)[len(receiver):]
-			fmt.Print("RUN\n")
 		}
 
 		return

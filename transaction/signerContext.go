@@ -14,7 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	config "github.com/imelon2/nitro-hive/config"
+	"github.com/vbauerster/mpb/v8"
 )
+
+type ProgressClass struct {
+	Bar      *mpb.Bar
+	Progress *mpb.Progress
+}
 
 type SignerContext struct {
 	MainClient *ethclient.Client
@@ -23,6 +29,7 @@ type SignerContext struct {
 	NonceMutex *sync.Mutex
 	Start      time.Time
 	Ctx        *context.Context
+	Progress   *ProgressClass
 }
 
 func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
