@@ -25,120 +25,150 @@ import (
 var DistributeCmd = &cobra.Command{
 	Use:   "distribute",
 	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		value, err := cmd.Flags().GetInt64("value")
+		isSubA, err := cmd.Flags().GetBool("sub-account")
 		if err != nil {
 			log.Fatal(err)
 		}
-		gasPrice, err := cmd.Flags().GetInt64("gasPrice")
-		if err != nil {
-			log.Fatal(err)
-		}
-		gasLimit, err := cmd.Flags().GetUint64("gasLimit")
+		isSiA, err := cmd.Flags().GetBool("simulate-account")
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		simulation := simulate.NewSimulateContext()
-
-		pk := utils.Unhexlify(config.GlobalConfig.SimulateOptions.SingleSigner.PrivateKey)
-		key, _ := crypto.HexToECDSA(pk)
-		signer, err := transaction.NewSginerContext(key)
-		if err != nil {
-			log.Fatal(err)
-		}
-
+		value := big.NewInt(int64(config.GlobalConfig.DistributeOptions.Value))
+		gasPrice := big.NewInt(int64(config.GlobalConfig.DistributeOptions.GasPrice))
+		gasLimit := uint64(config.GlobalConfig.DistributeOptions.Gas)
 		multicallMaxCall := c.MULTICALL_MAX_TX_COUNT
-		simulateAccount := len(simulation.Address)
-		subAccountCount := simulateAccount / multicallMaxCall
-		remained := simulateAccount % multicallMaxCall
-		if remained != 0 {
-			subAccountCount++
-		}
-		hlog.DistributeIntroLog(hlog.DistributeIntroLogParam{
-			TotalAccount: simulateAccount,
-			PerAmount:    value,
-		})
-		subAccount := (simulation.Address)[:subAccountCount]
 
-		for len(subAccount) > 0 {
-			receiver := subAccount
-			if len(subAccount) > multicallMaxCall {
-				receiver = (receiver)[:multicallMaxCall]
-			}
-			amountPerAccount := make([]*big.Int, 0)
-			for len(simulation.Address) > 0 {
-				simulateReceiver := simulation.Address
-				if len(simulateReceiver) > multicallMaxCall {
-					simulateReceiver = simulateReceiver[:multicallMaxCall]
-				}
+		/*
+		* The signer sends the sub accounts funds to distribute to the simulate account.
+		* Each transaction can send funds to a maximum of 250 simulate accounts.
+		* All transfers are done via `Multicall3`, and you can perform up to 250 transfers.
+		 */
+		if isSubA {
+			simulation := simulate.NewSimulateContext()
 
-				totalValue := big.NewInt(value * int64(len(simulateReceiver)))
-				totalValue = totalValue.Add(totalValue, c.MULTICALL_FEE)
-
-				amountPerAccount = append(amountPerAccount, totalValue)
-
-				simulation.Address = (simulation.Address)[len(simulateReceiver):]
-
-				if len(amountPerAccount) == multicallMaxCall {
-					break
-				}
-			}
-			txFuncs := make([]func() (*types.Transaction, error), 0)
-			txFunc := signer.Distribute(receiver, big.NewInt(gasPrice), gasLimit, amountPerAccount)
-			txFuncs = append(txFuncs, txFunc)
-
-			bar, p := hlog.NewSignerProgress(0, int64(len(txFuncs)))
-			signer.Progress = &transaction.ProgressClass{
-				Bar:      bar,
-				Progress: p,
+			simulateAccountCount := len(simulation.Address)
+			subAccountCount := simulateAccountCount / multicallMaxCall
+			remained := simulateAccountCount % multicallMaxCall
+			if remained != 0 {
+				subAccountCount++
 			}
 
-			simulation.SimulateWait(txFuncs)
-
-			signer.Progress.Progress.Wait()
-			subAccount = (subAccount)[len(receiver):]
-		}
-
-		return
-
-		subAccountPk := (simulation.PrivateKey)[:subAccountCount]
-		txSubFuncs := make([]func() (*types.Transaction, error), 0)
-		for _, _pk := range subAccountPk {
-			subSigner, err := transaction.NewSginerContext(_pk)
+			pk := utils.Unhexlify(config.GlobalConfig.DistributeOptions.PrivateKey)
+			key, _ := crypto.HexToECDSA(pk)
+			signer, err := transaction.NewSginerContext(key)
 			if err != nil {
 				log.Fatal(err)
 			}
+			subAccount := (simulation.Address)[:subAccountCount]
 
-			receivers := len(simulation.Address)
-			if receivers > multicallMaxCall {
-				receivers = multicallMaxCall // 마지막에 남은 요소가 chunkSize보다 적은 경우
+			subTx := subAccountCount / multicallMaxCall
+			if subAccountCount%multicallMaxCall != 0 {
+				subTx++
 			}
-			// 현재 추출할 chunk 설정
-			to := (simulation.Address)[:receivers]
-			simulation.Address = (simulation.Address)[receivers:]
 
-			txFunc := subSigner.Distribute(to, big.NewInt(gasPrice), gasLimit, utils.FillBigIntArray(receivers, big.NewInt(value)))
-			txSubFuncs = append(txSubFuncs, txFunc)
+			txFuncs := make([]func() (*types.Transaction, error), 0)
+
+			for len(subAccount) > 0 {
+				subAccountReceiver := subAccount
+				//  multicall transfer max count := multicallMaxCall
+				if len(subAccount) > multicallMaxCall {
+					subAccountReceiver = (subAccountReceiver)[:multicallMaxCall]
+				}
+
+				amountPerAccount := make([]*big.Int, 0)
+				for simulateAccountCount > 0 {
+					simulateReceiver := simulateAccountCount
+					//  multicall transfer max count := multicallMaxCall
+					if simulateReceiver > multicallMaxCall {
+						simulateReceiver = multicallMaxCall
+					}
+
+					totalValue := big.NewInt(1).Mul(value, big.NewInt(int64(simulateReceiver)))
+					totalValue = totalValue.Add(totalValue, c.MULTICALL_FEE)
+
+					amountPerAccount = append(amountPerAccount, totalValue)
+
+					simulateAccountCount -= simulateReceiver
+
+					if len(amountPerAccount) == multicallMaxCall {
+						break
+					}
+				}
+
+				txFunc := signer.Distribute(subAccountReceiver, gasPrice, gasLimit, amountPerAccount)
+				txFuncs = append(txFuncs, txFunc)
+				subAccount = (subAccount)[len(subAccountReceiver):]
+			}
+
+			txSubFuncs := []simulate.SimulateSigner{
+				{
+					TxFunc: txFuncs,
+					Signer: signer,
+				},
+			}
+			// intro console log
+			hlog.SimulateLog(txSubFuncs)
+
+			SubStart := time.Now()
+			simulation.SimulateWait(&txSubFuncs)
+			Subduration := time.Since(SubStart) // 종료 시점에서 경과 시간 계산
+			fmt.Printf("\n\nExecution distribute to sub account simualter time: %v\n\n", Subduration)
 		}
 
-		SubStart := time.Now()
-		simulation.SimulateWithThread(txSubFuncs)
-		Subduration := time.Since(SubStart) // 종료 시점에서 경과 시간 계산
-		fmt.Printf("\n\nExecution SimulateWait time: %v\n", Subduration)
+		/*
+		* Each sub account will send `value` per simulate account and sub account can send funds to a maximum of 250 simulate accounts.
+		* All transfers are done via `Multicall3`, and you can perform up to 250 transfers.
+		 */
+		if isSiA {
+			simulation := simulate.NewSimulateContext()
+			simulateAccountCount := len(simulation.Address)
+			subAccountCount := simulateAccountCount / multicallMaxCall
+
+			if simulateAccountCount%multicallMaxCall != 0 {
+				subAccountCount++
+			}
+
+			txSubFuncs := make([]simulate.SimulateSigner, 0)
+			subAccountPk := (simulation.PrivateKey)[:subAccountCount]
+			for _, _pk := range subAccountPk {
+				subSigner, err := transaction.NewSginerContext(_pk)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				receivers := len(simulation.Address)
+				if receivers > multicallMaxCall {
+					receivers = multicallMaxCall
+				}
+
+				to := (simulation.Address)[:receivers]
+				simulation.Address = (simulation.Address)[receivers:]
+
+				txFunc := subSigner.Distribute(to, gasPrice, gasLimit, utils.FillBigIntArray(receivers, value))
+				txSubFuncs = append(txSubFuncs, simulate.SimulateSigner{
+					TxFunc: []func() (*types.Transaction, error){
+						txFunc,
+					},
+					Signer: subSigner,
+				})
+			}
+
+			// intro console log
+			hlog.SimulateLog(txSubFuncs)
+
+			SubStart := time.Now()
+			simulation.SimulateWithThread(&txSubFuncs)
+			Subduration := time.Since(SubStart) // 종료 시점에서 경과 시간 계산
+			fmt.Printf("\n\nExecution distribute to simulate accounts simualter time: %v\n\n", Subduration)
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(DistributeCmd)
 
-	DistributeCmd.Flags().Int64P("value", "", 10000000000000, "Number of node created data to retrieve(DEFAULT 1 ETH)")
-	DistributeCmd.Flags().Int64P("gasPrice", "", 300000000, "Number of node created data to retrieve(0.5 GWEI)")
-	DistributeCmd.Flags().Uint64P("gasLimit", "", 0, "Number of node created data to retrieve")
+	DistributeCmd.Flags().BoolP("sub-account", "u", true, "Distribute to sub account funds from signer")
+	DistributeCmd.Flags().BoolP("simulate-account", "i", true, "Distribute to simualter account funds from sub accounts")
 }

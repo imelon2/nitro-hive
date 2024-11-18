@@ -23,13 +23,13 @@ type ProgressClass struct {
 }
 
 type SignerContext struct {
-	MainClient *ethclient.Client
-	Account    *common.Address
-	SignerOpt  *bind.TransactOpts
-	NonceMutex *sync.Mutex
-	Start      time.Time
-	Ctx        *context.Context
-	Progress   *ProgressClass
+	MainClient   *ethclient.Client
+	Account      *common.Address
+	SignerOpt    *bind.TransactOpts
+	NonceMutex   *sync.Mutex
+	Task         time.Duration
+	TaskAvergage time.Duration
+	Ctx          *context.Context
 }
 
 func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {

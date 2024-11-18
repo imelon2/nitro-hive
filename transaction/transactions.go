@@ -82,7 +82,6 @@ func (signer *SignerContext) Distribute(to []*common.Address, gasPrice *big.Int,
 		signer.SignerOpt.Value = Value
 
 		tx, err := Multicall3.Aggregate3Value(signer.SignerOpt, calls)
-		signer.Progress.Bar.Increment()
 		return tx, err
 	}
 
