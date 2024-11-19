@@ -28,7 +28,6 @@ type SimulateContext struct {
 	Total      int
 	Wait       sync.WaitGroup
 	FailCount  int
-	Start      *time.Time
 	Ctx        context.Context
 	Progress   *mpb.Progress
 }
@@ -74,7 +73,12 @@ func NewSimulateContext() *SimulateContext {
 	return &simulateContext
 }
 
-func (context *SimulateContext) AddProgress(index int, total int64, initTime time.Time, task time.Duration, taskAvergage time.Duration) *mpb.Bar {
+/**
+*	@perNow per task start time
+*	@task last task duration
+*	@taskAverage all task time of average
+ */
+func (context *SimulateContext) AddProgress(index int, total int64, perNow *time.Time, task *time.Duration, taskAverage *time.Duration) *mpb.Bar {
 	bar := context.Progress.AddBar(total,
 		mpb.PrependDecorators(
 			decor.Name(fmt.Sprintf("Signer#%d: ", index)),
@@ -84,29 +88,30 @@ func (context *SimulateContext) AddProgress(index int, total int64, initTime tim
 		),
 		mpb.AppendDecorators(
 			decor.Percentage(),
-			decor.Name(" ]"),
+			decor.Name(" |"),
 			decor.Any(func(s decor.Statistics) string {
 				if s.Completed {
-					return fmt.Sprintf(" %0.2fs", task.Seconds())
+					return fmt.Sprintf(" %0.3fs", task.Seconds())
 				}
-				task = time.Since(initTime)
 
-				elapsed := task.Seconds()
-				return fmt.Sprintf(" %0.2fs", elapsed)
+				taskDuration := time.Since(*perNow)
+				elapsed := taskDuration.Seconds()
+				return fmt.Sprintf(" %0.3fs", elapsed)
 			}),
 			decor.Any(func(s decor.Statistics) string {
 				if s.Completed {
-					return fmt.Sprintf(" | %.2fs/opt", taskAvergage.Seconds()/float64(s.Current))
+					return fmt.Sprintf(" | %.3fs/opt", taskAverage.Seconds()/float64(s.Current))
 				}
 
-				taskAvergage = time.Since(initTime)
 				if s.Current == 0 {
 					return " | 0.00s/pot"
 				}
 
-				avgTimePerTask := taskAvergage.Seconds() / float64(s.Current)
-				return fmt.Sprintf(" | %.2fs/opt", avgTimePerTask)
+				avgTimePerTask := taskAverage.Seconds() / float64(s.Current)
+				return fmt.Sprintf(" | %.3fs/opt", avgTimePerTask)
 			}),
+			decor.Name(" | "),
+			decor.Elapsed(decor.ET_STYLE_MMSS), // progressed time
 			decor.Name(" | ETA: "),
 			decor.OnComplete(decor.AverageETA(decor.ET_STYLE_GO), "DONE"), // Average Estimated Time of Arrival
 		),

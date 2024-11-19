@@ -34,22 +34,27 @@ func (context *SimulateContext) SimulateWait(simulate *[]SimulateSigner) {
 	for signerIndex, s := range *simulate {
 		context.Wait.Add(1)
 
-		now := time.Now()
-		bar := context.AddProgress(signerIndex, int64(len(s.TxFunc)), now, s.Signer.Task, s.Signer.TaskAvergage)
+		*s.Signer.PerNow = time.Now()
+		bar := context.AddProgress(signerIndex, int64(len(s.TxFunc)), s.Signer.PerNow, s.Signer.Task, s.Signer.TaskAverage)
 		for i := 0; i < len(s.TxFunc); i++ {
 			func(i int) {
-				defer context.Wait.Done()
-				tx, err := s.TxFunc[i]()
+				*s.Signer.PerNow = time.Now()
+				_, err := s.TxFunc[i]()
 				if err != nil {
 					log.Fatalf("txFunc: %v", err)
 				}
-				_, err = bind.WaitMined(context.Ctx, context.MainClient, tx)
-				if err != nil {
-					log.Fatalf("WaitMined: %v", err)
-				}
-				bar.EwmaIncrement(time.Since(now))
+				*s.Signer.Task = time.Since(*s.Signer.PerNow)
+				*s.Signer.TaskAverage += *s.Signer.Task
+
+				// @TODO Need verify always success
+				// _, err = bind.WaitMined(context.Ctx, context.MainClient, tx)
+				// if err != nil {
+				// 	log.Fatalf("WaitMined: %v", err)
+				// }
+				bar.Increment()
 			}(i)
 		}
+		context.Wait.Done()
 		context.Progress.Wait()
 	}
 }
@@ -58,20 +63,31 @@ func (context *SimulateContext) SimulateWithThread(simulate *[]SimulateSigner) {
 	for signerIndex, s := range *simulate {
 		context.Wait.Add(1)
 
-		now := time.Now()
-		bar := context.AddProgress(signerIndex, int64(len(s.TxFunc)), now, s.Signer.Task, s.Signer.TaskAvergage)
-		go func() {
-			defer context.Wait.Done()
+		*s.Signer.PerNow = time.Now()
+		bar := context.AddProgress(signerIndex, int64(len(s.TxFunc)), s.Signer.PerNow, s.Signer.Task, s.Signer.TaskAverage)
+		go func(goContext *SimulateContext, goSigner SimulateSigner) {
 			for i := 0; i < len(s.TxFunc); i++ {
-				_, err := s.TxFunc[i]()
-				if err != nil {
-					log.Fatalf("txFunc: %v", err)
-				}
+				func(i int) {
+					*s.Signer.PerNow = time.Now()
+					_, err := s.TxFunc[i]()
+					if err != nil {
+						log.Fatalf("txFunc: %v", err)
+					}
+					*s.Signer.Task = time.Since(*s.Signer.PerNow)
+					*s.Signer.TaskAverage += *s.Signer.Task
 
-				bar.EwmaIncrement(time.Since(now))
+					// @TODO Need verify always success
+					// _, err = bind.WaitMined(context.Ctx, context.MainClient, tx)
+					// if err != nil {
+					// 	log.Fatalf("WaitMined: %v", err)
+					// }
+					bar.Increment()
+				}(i)
 			}
-		}()
+		}(context, s)
+		context.Wait.Done()
 	}
+	context.Wait.Wait()
 	context.Progress.Wait()
 }
 

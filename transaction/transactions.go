@@ -6,38 +6,30 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	constant "github.com/imelon2/nitro-hive/common"
-	"github.com/imelon2/nitro-hive/common/utils"
-	config "github.com/imelon2/nitro-hive/config"
 	multicall3 "github.com/imelon2/nitro-hive/solgen"
 )
 
-func (signer *SignerContext) NativeTransafer() func(*common.Address) (*types.Transaction, error) {
-	txFunc := func(to *common.Address) (*types.Transaction, error) {
+func (signer *SignerContext) TransaferLegacyTx(to *common.Address, gasPrice *big.Int, gasLimit uint64, data []byte, value *big.Int) func() (*types.Transaction, error) {
+	txFunc := func() (*types.Transaction, error) {
 		signer.NonceMutex.Lock()
 		defer signer.NonceMutex.Unlock()
 		signer.UpdateNonce()
 
 		var err error
-		GasPrice := big.NewInt(int64(config.GlobalConfig.TransactionOptions.GasPrice))
-		if GasPrice.Cmp(big.NewInt(0)) == 0 {
-			GasPrice, err = signer.MainClient.SuggestGasPrice(*signer.Ctx)
+		if gasPrice.Cmp(big.NewInt(0)) == 0 {
+			gasPrice, err = signer.MainClient.SuggestGasPrice(*signer.Ctx)
 			if err != nil {
 				return nil, err
 			}
-		}
-		Data := common.Hex2Bytes(utils.Unhexlify(config.GlobalConfig.TransactionOptions.Data))
-		if to == nil {
-			_to := common.HexToAddress(config.GlobalConfig.TransactionOptions.To)
-			to = &_to
 		}
 
 		tx := types.NewTx(&types.LegacyTx{
 			Nonce:    signer.SignerOpt.Nonce.Uint64(),
 			To:       to,
-			Value:    big.NewInt(int64(config.GlobalConfig.TransactionOptions.Value)),
-			Gas:      uint64(config.GlobalConfig.TransactionOptions.Gas),
-			GasPrice: GasPrice,
-			Data:     Data,
+			Value:    value,
+			Gas:      gasLimit,
+			GasPrice: gasPrice,
+			Data:     data,
 		})
 
 		signedTx, err := signer.SignerOpt.Signer(*signer.Account, tx)

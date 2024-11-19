@@ -23,13 +23,14 @@ type ProgressClass struct {
 }
 
 type SignerContext struct {
-	MainClient   *ethclient.Client
-	Account      *common.Address
-	SignerOpt    *bind.TransactOpts
-	NonceMutex   *sync.Mutex
-	Task         time.Duration
-	TaskAvergage time.Duration
-	Ctx          *context.Context
+	MainClient  *ethclient.Client
+	Account     *common.Address
+	SignerOpt   *bind.TransactOpts
+	NonceMutex  *sync.Mutex
+	Task        *time.Duration
+	TaskAverage *time.Duration
+	PerNow      *time.Time
+	Ctx         *context.Context
 }
 
 func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
@@ -58,11 +59,14 @@ func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
 	}
 	ctx := context.Background()
 	return &SignerContext{
-		MainClient: mainClient,
-		Account:    &address,
-		SignerOpt:  opt,
-		NonceMutex: new(sync.Mutex),
-		Ctx:        &ctx,
+		MainClient:  mainClient,
+		Account:     &address,
+		SignerOpt:   opt,
+		NonceMutex:  new(sync.Mutex),
+		Task:        new(time.Duration),
+		TaskAverage: new(time.Duration),
+		PerNow:      new(time.Time),
+		Ctx:         &ctx,
 	}, nil
 }
 

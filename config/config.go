@@ -13,7 +13,7 @@ import (
 type Config struct {
 	Providers         Providers         `yaml:"providers"`
 	SingleOptions     SingleOptions     `yaml:"single-options"`
-	MultiOptions      MultiOptions      `yaml:"transaction-options"`
+	MultiOptions      MultiOptions      `yaml:"multi-options"`
 	DistributeOptions DistributeOptions `yaml:"distribute-options"`
 }
 
@@ -22,13 +22,13 @@ type Providers struct {
 }
 
 type SingleOptions struct {
-	Total              int                `yaml:"total"`
+	PerTx              int                `yaml:"per-tx"`
 	PrivateKey         string             `yaml:"private-key"`
 	TransactionOptions TransactionOptions `yaml:"transaction-options"`
 }
 
 type MultiOptions struct {
-	Total              int                `yaml:"total"`
+	PerTx              int                `yaml:"per-tx"`
 	PrivateKeyRange    PrivateKeyRange    `yaml:"private-key-range"`
 	TransactionOptions TransactionOptions `yaml:"transaction-options"`
 }
@@ -82,8 +82,7 @@ func init() {
 }
 
 func GetCpu() {
-	currCPU := runtime.NumCPU() // 내 PC CPU 개수
-	// runtime.GOMAXPROCS(currCPU)
+	currCPU := runtime.NumCPU()                                 // 내 PC CPU 개수
 	fmt.Println("Max System CPU : ", currCPU)                   // 설정값 출력
 	fmt.Println("Current System CPU : ", runtime.GOMAXPROCS(0)) // 설정값 출력
 }
