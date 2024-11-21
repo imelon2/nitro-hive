@@ -3,6 +3,7 @@ package simulate
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -35,7 +36,11 @@ func (context *SimulateContext) SimulateWait(simulate *[]SimulateSigner) {
 		context.Wait.Add(1)
 
 		*s.Signer.PerNow = time.Now()
-		bar := context.AddProgress(signerIndex, int64(len(s.TxFunc)), s.Signer.PerNow, s.Signer.Task, s.Signer.TaskAverage)
+
+		if context.Progress != nil {
+			s.Signer.ProgressBar = context.AddProgress(signerIndex, int64(len(s.TxFunc)), s.Signer.PerNow, s.Signer.Task, s.Signer.TaskAverage)
+		}
+
 		for i := 0; i < len(s.TxFunc); i++ {
 			func(i int) {
 				*s.Signer.PerNow = time.Now()
@@ -51,11 +56,16 @@ func (context *SimulateContext) SimulateWait(simulate *[]SimulateSigner) {
 				// if err != nil {
 				// 	log.Fatalf("WaitMined: %v", err)
 				// }
-				bar.Increment()
+				if s.Signer.ProgressBar != nil {
+					s.Signer.ProgressBar.Increment()
+				}
 			}(i)
 		}
+
 		context.Wait.Done()
-		context.Progress.Wait()
+		if context.Progress != nil {
+			context.Progress.Wait()
+		}
 	}
 }
 
@@ -64,31 +74,44 @@ func (context *SimulateContext) SimulateWithThread(simulate *[]SimulateSigner) {
 		context.Wait.Add(1)
 
 		*s.Signer.PerNow = time.Now()
-		bar := context.AddProgress(signerIndex, int64(len(s.TxFunc)), s.Signer.PerNow, s.Signer.Task, s.Signer.TaskAverage)
-		go func(goContext *SimulateContext, goSigner SimulateSigner) {
+		if context.Progress != nil {
+			s.Signer.ProgressBar = context.AddProgress(signerIndex, int64(len(s.TxFunc)), s.Signer.PerNow, s.Signer.Task, s.Signer.TaskAverage)
+		}
+		go func(goContext *SimulateContext, goSigner *SimulateSigner) {
 			for i := 0; i < len(s.TxFunc); i++ {
 				func(i int) {
-					*s.Signer.PerNow = time.Now()
-					_, err := s.TxFunc[i]()
-					if err != nil {
-						log.Fatalf("txFunc: %v", err)
+					for {
+						*s.Signer.PerNow = time.Now()
+						_, err := s.TxFunc[i]()
+						if err != nil {
+							if strings.Contains(err.Error(), "nonce too low") {
+								continue
+							}
+							log.Fatalf("txFunc is?: %v", err.Error())
+						}
+						*s.Signer.Task = time.Since(*s.Signer.PerNow)
+						*s.Signer.TaskAverage += *s.Signer.Task
+						break
 					}
-					*s.Signer.Task = time.Since(*s.Signer.PerNow)
-					*s.Signer.TaskAverage += *s.Signer.Task
 
 					// @TODO Need verify always success
 					// _, err = bind.WaitMined(context.Ctx, context.MainClient, tx)
 					// if err != nil {
 					// 	log.Fatalf("WaitMined: %v", err)
 					// }
-					bar.Increment()
+					if s.Signer.ProgressBar != nil {
+						s.Signer.ProgressBar.Increment()
+					}
 				}(i)
 			}
-		}(context, s)
-		context.Wait.Done()
+			context.Wait.Done()
+		}(context, &s)
 	}
+
 	context.Wait.Wait()
-	context.Progress.Wait()
+	if context.Progress != nil {
+		context.Progress.Wait()
+	}
 }
 
 func Simulate(index int, total int, txFunc func(*common.Address) (*types.Transaction, error)) {

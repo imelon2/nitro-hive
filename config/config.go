@@ -15,6 +15,7 @@ type Config struct {
 	SingleOptions     SingleOptions     `yaml:"single-options"`
 	MultiOptions      MultiOptions      `yaml:"multi-options"`
 	DistributeOptions DistributeOptions `yaml:"distribute-options"`
+	CommonOptions     CommonOptions     `yaml:"common-options"`
 }
 
 type Providers struct {
@@ -38,6 +39,10 @@ type DistributeOptions struct {
 	Value      int    `yaml:"value"`
 	Gas        int    `yaml:"gas"`
 	GasPrice   int    `yaml:"gas-price"`
+}
+
+type CommonOptions struct {
+	ProgressLog bool `yaml:"progress-log"`
 }
 
 type TransactionOptions struct {

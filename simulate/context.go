@@ -68,7 +68,10 @@ func NewSimulateContext() *SimulateContext {
 	// simulateContext.Total = config.GlobalConfig.SimulateOptions.Total
 
 	// for multi log
-	simulateContext.Progress = mpb.New(mpb.WithWaitGroup(&simulateContext.Wait), mpb.WithWidth(40))
+	simulateContext.Progress = nil
+	if config.GlobalConfig.CommonOptions.ProgressLog {
+		simulateContext.Progress = mpb.New(mpb.WithWaitGroup(&simulateContext.Wait), mpb.WithWidth(40))
+	}
 
 	return &simulateContext
 }

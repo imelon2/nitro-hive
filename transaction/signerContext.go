@@ -30,6 +30,7 @@ type SignerContext struct {
 	Task        *time.Duration
 	TaskAverage *time.Duration
 	PerNow      *time.Time
+	ProgressBar *mpb.Bar
 	Ctx         *context.Context
 }
 
