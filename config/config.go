@@ -11,15 +11,11 @@ import (
 )
 
 type Config struct {
-	Providers         Providers         `yaml:"providers"`
+	Providers         []string          `yaml:"providers"`
 	SingleOptions     SingleOptions     `yaml:"single-options"`
 	MultiOptions      MultiOptions      `yaml:"multi-options"`
 	DistributeOptions DistributeOptions `yaml:"distribute-options"`
 	CommonOptions     CommonOptions     `yaml:"common-options"`
-}
-
-type Providers struct {
-	Main string `yaml:"main"`
 }
 
 type SingleOptions struct {

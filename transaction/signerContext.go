@@ -34,8 +34,15 @@ type SignerContext struct {
 	Ctx         *context.Context
 }
 
+var PROVIDER_INDEX = 0
+
+func getCUrrentProviderUrl() string {
+	PROVIDER_INDEX = (PROVIDER_INDEX + 1) % len(config.GlobalConfig.Providers)
+	return config.GlobalConfig.Providers[PROVIDER_INDEX]
+}
+
 func NewSginerContext(pk *ecdsa.PrivateKey) (*SignerContext, error) {
-	mainClient, err := ethclient.Dial(config.GlobalConfig.Providers.Main)
+	mainClient, err := ethclient.Dial(getCUrrentProviderUrl())
 	if err != nil {
 		log.Fatalf("main client: %v", err)
 	}

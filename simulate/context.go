@@ -35,7 +35,10 @@ type SimulateContext struct {
 func NewSimulateContext() *SimulateContext {
 	simulateContext := SimulateContext{}
 
-	mainClient, err := ethclient.Dial(config.GlobalConfig.Providers.Main)
+	if len(config.GlobalConfig.Providers) == 0 {
+		log.Fatalf("need at least one provider in your config.yml.")
+	}
+	mainClient, err := ethclient.Dial(config.GlobalConfig.Providers[0])
 	if err != nil {
 		log.Fatalf("main client: %v", err)
 	}
