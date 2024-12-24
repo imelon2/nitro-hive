@@ -4,9 +4,11 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"log"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -44,22 +46,33 @@ to quickly create a Cobra application.`,
 		signersPk := (simulation.PrivateKey)[signerIndex : signerIndex+signerCount]
 
 		simulateSigners := make([]simulate.SimulateSigner, 0)
-		for _, key := range signersPk {
-			signer, err := transaction.NewSginerContext(key)
-			if err != nil {
-				log.Fatal(err)
-			}
-			txFuncs := make([]func() (*types.Transaction, error), 0)
-			for i := 0; i < perTx; i++ {
-				txFunc := signer.TransaferLegacyTx(&to, gasPrice, gasLimit, data, value)
-				txFuncs = append(txFuncs, txFunc)
-			}
 
-			simulateSigners = append(simulateSigners, simulate.SimulateSigner{
-				Signer: signer,
-				TxFunc: txFuncs,
-			})
+		wait := new(sync.WaitGroup)
+		mutex := new(sync.RWMutex)
+
+		for _, key := range signersPk {
+			wait.Add(1)
+			go func(_key *ecdsa.PrivateKey, _perTx int) {
+				signer, err := transaction.NewSginerContext(_key)
+				if err != nil {
+					log.Fatal(err)
+				}
+				txFuncs := make([]func() (*types.Transaction, error), 0)
+				for i := 0; i < _perTx; i++ {
+					txFunc := signer.TransaferLegacyTx(&to, gasPrice, gasLimit, data, value)
+					txFuncs = append(txFuncs, txFunc)
+				}
+
+				mutex.Lock()
+				simulateSigners = append(simulateSigners, simulate.SimulateSigner{
+					Signer: signer,
+					TxFunc: txFuncs,
+				})
+				mutex.Unlock()
+				wait.Done()
+			}(key, perTx)
 		}
+		wait.Wait()
 
 		// intro console log
 		hlog.SimulateLog(simulateSigners)

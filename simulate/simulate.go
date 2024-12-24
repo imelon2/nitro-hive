@@ -82,23 +82,25 @@ func (context *SimulateContext) SimulateWithThread(simulate *[]SimulateSigner) {
 				func(i int) {
 					for {
 						*s.Signer.PerNow = time.Now()
-						_, err := s.TxFunc[i]()
+						tx, err := s.TxFunc[i]()
 						if err != nil {
 							if strings.Contains(err.Error(), "nonce too low") {
 								continue
 							}
 							log.Fatalf("txFunc is?: %v", err.Error())
 						}
+
+						// @TODO Need verify always success
+						_, err = bind.WaitMined(context.Ctx, context.MainClient, tx)
+						if err != nil {
+							log.Fatalf("WaitMined: %v", err)
+						}
+
 						*s.Signer.Task = time.Since(*s.Signer.PerNow)
 						*s.Signer.TaskAverage += *s.Signer.Task
 						break
 					}
 
-					// @TODO Need verify always success
-					// _, err = bind.WaitMined(context.Ctx, context.MainClient, tx)
-					// if err != nil {
-					// 	log.Fatalf("WaitMined: %v", err)
-					// }
 					if s.Signer.ProgressBar != nil {
 						s.Signer.ProgressBar.Increment()
 					}
